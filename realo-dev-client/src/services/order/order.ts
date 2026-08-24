@@ -1,0 +1,236 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import type { ServerOrder, TrackedOrder } from "@/types/order";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+export type CartItemDTO = {
+  productId: string;
+  quantity: number;
+  size?: string;
+  color?: string;
+  sku?: string;
+};
+
+export type DeliveryInfoDTO = {
+  name: string;
+  phone: string;
+  state: string;
+  address: string;
+};
+
+export type BillingInfoDTO = {
+  name: string;
+  phone: string;
+  email?: string | null;
+  state: string;
+  address: string;
+};
+
+export type CreateOrderPayload = {
+  deliveryInfo: DeliveryInfoDTO;
+  billingInfo?: BillingInfoDTO;
+  deliveryType: string;
+  cartItems: CartItemDTO[];
+  paymentMethod: "ONLINE" | "COD";
+  checkoutEmail?: string;
+  couponCode?: string;
+};
+
+export type CreateOrderResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    order: any;
+    paymentUrl?: string;
+    deliveryCharge?: number;
+  };
+};
+
+export type ApiListResponse<T> = {
+  success: boolean;
+  message: string;
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+  data: T;
+};
+
+async function handleError(res: Response): Promise<never> {
+  const error = await res.json().catch(() => ({}));
+  throw new Error(error.message ?? `Request failed with status ${res.status}`);
+}
+
+export async function createOrder(
+  payload: CreateOrderPayload
+): Promise<CreateOrderResponse> {
+  const res = await fetch(`${API_URL}/api/v1/order`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) await handleError(res);
+  return res.json();
+}
+
+export async function getOrderById(orderId: string): Promise<any> {
+  const res = await fetch(`${API_URL}/api/v1/order/${orderId}`, {
+    credentials: "include",
+  });
+  if (!res.ok) await handleError(res);
+  return res.json();
+}
+
+export async function getOrderByTransactionId(transactionId: string): Promise<any> {
+  const res = await fetch(`${API_URL}/api/v1/order/transaction/${transactionId}`, {
+    credentials: "include",
+  });
+  if (!res.ok) await handleError(res);
+  return res.json();
+}
+
+export type GetOrdersParams = {
+  searchTerm?: string;
+  orderStatus?: string;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: string;
+};
+
+export async function getAllOrders(
+  params?: GetOrdersParams
+): Promise<ApiListResponse<ServerOrder[]>> {
+  const query = new URLSearchParams();
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== "") {
+        query.set(key, String(value));
+      }
+    }
+  }
+  const qs = query.toString();
+  const res = await fetch(`${API_URL}/api/v1/order${qs ? `?${qs}` : ""}`, {
+    credentials: "include",
+  });
+  if (!res.ok) await handleError(res);
+  return res.json();
+}
+
+export async function getMyOrders(): Promise<ApiListResponse<ServerOrder[]>> {
+  const res = await fetch(`${API_URL}/api/v1/order/my-orders`, {
+    credentials: "include",
+  });
+  if (!res.ok) await handleError(res);
+  return res.json();
+}
+
+export async function updateOrderStatus(
+  orderId: string,
+  status: string
+): Promise<ApiListResponse<ServerOrder>> {
+  const res = await fetch(`${API_URL}/api/v1/order/${orderId}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) await handleError(res);
+  return res.json();
+}
+
+/** Stores an admin override for the Shipment column. */
+export async function updateOrderShipmentStatus(
+  orderId: string,
+  shipmentStatus: string
+): Promise<ApiListResponse<ServerOrder>> {
+  const res = await fetch(`${API_URL}/api/v1/order/${orderId}/shipment-status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ shipmentStatus }),
+  });
+  if (!res.ok) await handleError(res);
+  return res.json();
+}
+
+/** Stores an admin override for the After-Sales column. */
+export async function updateOrderAfterSalesStatus(
+  orderId: string,
+  afterSalesStatus: string
+): Promise<ApiListResponse<ServerOrder>> {
+  const res = await fetch(`${API_URL}/api/v1/order/${orderId}/after-sales-status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ afterSalesStatus }),
+  });
+  if (!res.ok) await handleError(res);
+  return res.json();
+}
+
+export async function markOrderCollected(
+  orderId: string
+): Promise<ApiListResponse<ServerOrder>> {
+  const res = await fetch(`${API_URL}/api/v1/order/${orderId}/payment-status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ paymentStatus: "PAID" }),
+  });
+  if (!res.ok) await handleError(res);
+  return res.json();
+}
+
+export type UpdateOrderInfoPayload = {
+  name?: string;
+  phone?: string;
+  state?: string;
+  address?: string;
+  orderNote?: string | null;
+  billingName?: string | null;
+  billingPhone?: string | null;
+  billingEmail?: string | null;
+  billingState?: string | null;
+  billingAddress?: string | null;
+};
+
+export async function updateOrderInfo(
+  orderId: string,
+  payload: UpdateOrderInfoPayload
+): Promise<ApiListResponse<ServerOrder>> {
+  const res = await fetch(`${API_URL}/api/v1/order/${orderId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) await handleError(res);
+  return res.json();
+}
+
+/**
+ * Public order lookup for the storefront tracking page. Both the order number
+ * and the phone number on the order are required — the API answers with the
+ * same 404 whichever one is wrong.
+ */
+export async function trackOrder(
+  orderNo: string,
+  phone: string
+): Promise<ApiListResponse<TrackedOrder>> {
+  const res = await fetch(`${API_URL}/api/v1/order/track`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderNo, phone }),
+  });
+  if (!res.ok) await handleError(res);
+  return res.json();
+}

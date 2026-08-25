@@ -368,7 +368,6 @@ body {
 .rte-content img, .product-description img {
   max-width: 100%;
   height: auto;
-  border-radius: 8px;
 }
 
 .rte-content table, .product-description table {
@@ -457,7 +456,7 @@ body {
 }
 .post-content pre code { background: none; border: none; padding: 0; color: inherit; }
 .post-content mark { border-radius: 2px; padding: 0.05em 0.15em; }
-.post-content img { max-width: 100%; height: auto; border-radius: 8px; }
+.post-content img { max-width: 100%; height: auto; }
 .post-content table {
   display: block;
   max-width: 100%;
@@ -511,14 +510,12 @@ body {
   width: 100%;
   height: 110px;
   object-fit: cover;
-  border-radius: 6px;
 }
 
 /* ── Media ──────────────────────────────────────────────────────────────── */
 
 .rte-content .video-block, .post-content .video-block {
   width: 100%;
-  border-radius: 8px;
   background: #000;
 }
 
@@ -528,7 +525,6 @@ body {
   position: relative;
   width: 100%;
   padding-top: 56.25%;
-  border-radius: 8px;
   overflow: hidden;
   background: var(--color-canvas);
 }
@@ -637,7 +633,6 @@ body {
 .rte-content .ProseMirror-selectednode {
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
-  border-radius: 6px;
 }
 
 /* ── Selectable, corner-resizable media ─────────────────────────────────── */
@@ -648,12 +643,55 @@ body {
   max-width: 100%;
 }
 
+/* `height: 100%` resolves to auto while the frame has no explicit height,
+   so the same rule covers both intrinsic sizing and edge-handle stretching. */
 .rte-content .rte-media-frame > img,
 .rte-content .rte-media-frame > video {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+}
+
+/* Images are dragged straight from their body, so advertise that. */
+.rte-content .rte-media-frame > img {
+  cursor: move;
+}
+
+.rte-content .rte-media-frame > video {
   cursor: pointer;
+}
+
+/* ── Free placement ─────────────────────────────────────────────────────── */
+
+/* Free blocks are absolutely positioned against the document itself, so the
+   editing surface and the published article both need to be the containing
+   block for them. */
+.rte-content,
+.post-content {
+  position: relative;
+}
+
+.rte-content [data-free="true"],
+.post-content [data-free="true"] {
+  position: absolute;
+  z-index: 5;
+  margin: 0;
+}
+
+/* Nothing may clip a freely placed block out of the document. */
+.rte-content .rte-media-frame.is-free {
+  overflow: visible;
+}
+
+/* The pointer must not fight the browser while a gesture is running. */
+.rte-content .rte-media-frame.is-busy {
+  user-select: none;
+}
+
+.rte-content .rte-media-frame.is-busy > img,
+.rte-content .rte-media-frame.is-busy > video,
+.rte-content .rte-media-frame.is-busy > iframe {
+  pointer-events: none;
 }
 
 /* The bounding box shown once the media is selected. */
@@ -671,27 +709,12 @@ body {
   outline: 2px solid var(--color-brand);
 }
 
-/* No text selection or native media drag while pulling a corner. */
-.rte-content .rte-media-frame.is-resizing {
-  user-select: none;
-}
-
-.rte-content .rte-media-frame.is-resizing > img,
-.rte-content .rte-media-frame.is-resizing > video,
-.rte-content .rte-media-frame.is-resizing > iframe {
-  pointer-events: none;
-}
-
 /* An embed keeps its 16:9 box while the wrapper's width changes. Overflow is
    visible so the alignment controls are never clipped; the rounding moves to
    the iframe itself to compensate. */
 .rte-content .rte-media-frame.embed-wrap {
   padding-top: 0;
   overflow: visible;
-}
-
-.rte-content .rte-media-frame.embed-wrap > iframe {
-  border-radius: 8px;
 }
 
 .rte-content .rte-media-frame.embed-wrap::before {

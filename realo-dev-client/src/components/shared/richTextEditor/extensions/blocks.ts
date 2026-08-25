@@ -1,5 +1,13 @@
 import { Node, mergeAttributes } from "@tiptap/core"
 
+import {
+  MEDIA_FRAME_ATTRS,
+  mediaFrameHTMLAttrs,
+  parseMediaFrame,
+} from "./mediaFrame"
+
+export { ALIGN_VALUES, type MediaAlign } from "./mediaFrame"
+
 /**
  * Rich content blocks for the blog editor.
  *
@@ -16,22 +24,6 @@ const passthroughAttr = (name: string, fallback: string | null = null) => ({
     attributes[name] ? { [name]: attributes[name] } : {},
 })
 
-/**
- * Where a scaled block sits across the column: left, center or right.
- *
- * Serialized as `data-align` and positioned by the shared stylesheet with
- * auto margins — `text-align` cannot move a block that has its own width.
- */
-export const ALIGN_VALUES = ["left", "center", "right"] as const
-export type MediaAlign = (typeof ALIGN_VALUES)[number]
-
-const alignAttr = {
-  default: null as MediaAlign | null,
-  parseHTML: (element: HTMLElement) => element.getAttribute("data-align"),
-  renderHTML: (attributes: Record<string, unknown>) =>
-    attributes.align ? { "data-align": attributes.align } : {},
-}
-
 /** A bare image, so legacy/pasted `<img>` survives a round-trip. */
 export const ImageBlock = Node.create({
   name: "imageBlock",
@@ -45,14 +37,7 @@ export const ImageBlock = Node.create({
       src: passthroughAttr("src"),
       alt: passthroughAttr("alt"),
       title: passthroughAttr("title"),
-      align: alignAttr,
-      /** Set by dragging a corner handle; a percentage of the content width. */
-      width: {
-        default: null as string | null,
-        parseHTML: (element: HTMLElement) => element.style.width || null,
-        renderHTML: (attributes: Record<string, unknown>) =>
-          attributes.width ? { style: `width: ${attributes.width}` } : {},
-      },
+      ...MEDIA_FRAME_ATTRS,
     }
   },
 
@@ -61,8 +46,8 @@ export const ImageBlock = Node.create({
     return [{ tag: "img[src]:not(figure img)" }]
   },
 
-  renderHTML({ HTMLAttributes }) {
-    return ["img", mergeAttributes(HTMLAttributes)]
+  renderHTML({ node, HTMLAttributes }) {
+    return ["img", mergeAttributes(HTMLAttributes, mediaFrameHTMLAttrs(node.attrs))]
   },
 })
 
@@ -79,15 +64,10 @@ export const Figure = Node.create({
       src: passthroughAttr("src"),
       alt: passthroughAttr("alt"),
       /**
-       * Width and alignment live on the `<figure>` rather than the `<img>`,
-       * so the caption tracks the image instead of the whole column.
+       * Geometry lives on the `<figure>` rather than the `<img>`, so the
+       * caption tracks the image instead of the whole column.
        */
-      width: {
-        default: null as string | null,
-        parseHTML: (element: HTMLElement) => element.style.width || null,
-        renderHTML: () => ({}),
-      },
-      align: { ...alignAttr, renderHTML: () => ({}) },
+      ...MEDIA_FRAME_ATTRS,
     }
   },
 
@@ -101,8 +81,7 @@ export const Figure = Node.create({
           return {
             src: img?.getAttribute("src") ?? null,
             alt: img?.getAttribute("alt") ?? null,
-            width: (element as HTMLElement).style.width || null,
-            align: (element as HTMLElement).getAttribute("data-align"),
+            ...parseMediaFrame(element as HTMLElement),
           }
         },
       },
@@ -112,11 +91,7 @@ export const Figure = Node.create({
   renderHTML({ node, HTMLAttributes }) {
     return [
       "figure",
-      {
-        class: "post-figure",
-        ...(node.attrs.width ? { style: `width: ${node.attrs.width}` } : {}),
-        ...(node.attrs.align ? { "data-align": node.attrs.align } : {}),
-      },
+      { class: "post-figure", ...mediaFrameHTMLAttrs(node.attrs) },
       ["img", mergeAttributes(HTMLAttributes)],
       ["figcaption", {}, 0],
     ]
@@ -159,14 +134,6 @@ export const Gallery = Node.create({
   },
 })
 
-/** Percentage width written by the corner-drag handles. */
-const widthAttr = {
-  default: null as string | null,
-  parseHTML: (element: HTMLElement) => element.style.width || null,
-  renderHTML: (attributes: Record<string, unknown>) =>
-    attributes.width ? { style: `width: ${attributes.width}` } : {},
-}
-
 /** Self-hosted media — `<video controls>` / `<audio controls>`. */
 const mediaBlock = (name: string, tag: "video" | "audio", resizable = false) =>
   Node.create({
@@ -179,7 +146,7 @@ const mediaBlock = (name: string, tag: "video" | "audio", resizable = false) =>
     addAttributes() {
       return {
         src: passthroughAttr("src"),
-        ...(resizable ? { width: widthAttr, align: alignAttr } : {}),
+        ...(resizable ? MEDIA_FRAME_ATTRS : {}),
       }
     },
 
@@ -187,10 +154,14 @@ const mediaBlock = (name: string, tag: "video" | "audio", resizable = false) =>
       return [{ tag: `${tag}[src]` }]
     },
 
-    renderHTML({ HTMLAttributes }) {
+    renderHTML({ node, HTMLAttributes }) {
       return [
         tag,
-        mergeAttributes(HTMLAttributes, { controls: "true", class: `${tag}-block` }),
+        mergeAttributes(HTMLAttributes, {
+          controls: "true",
+          class: `${tag}-block`,
+          ...(resizable ? mediaFrameHTMLAttrs(node.attrs) : {}),
+        }),
       ]
     },
   })
@@ -262,9 +233,8 @@ export const EmbedBlock = Node.create({
           element.querySelector("iframe")?.getAttribute("src") ?? null,
         renderHTML: () => ({}),
       },
-      // Sit on the aspect-ratio wrapper, so scaling stays proportional.
-      width: { ...widthAttr, renderHTML: () => ({}) },
-      align: { ...alignAttr, renderHTML: () => ({}) },
+      // Sits on the aspect-ratio wrapper, so scaling stays proportional.
+      ...MEDIA_FRAME_ATTRS,
     }
   },
 
@@ -275,11 +245,7 @@ export const EmbedBlock = Node.create({
   renderHTML({ node }) {
     return [
       "div",
-      {
-        class: "embed-wrap",
-        ...(node.attrs.width ? { style: `width: ${node.attrs.width}` } : {}),
-        ...(node.attrs.align ? { "data-align": node.attrs.align } : {}),
-      },
+      { class: "embed-wrap", ...mediaFrameHTMLAttrs(node.attrs) },
       [
         "iframe",
         {

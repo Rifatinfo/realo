@@ -3,18 +3,14 @@
 import { useEffect, useState } from "react";
 
 import { usePathname } from "next/navigation";
-import { getPublicMenu } from "@/services/menus/menus";
+import { getPublicMenu, type ServerNode } from "@/services/menus/menus";
 import { Navbar, type MenuItem } from "./Navbar";
 import { navItems as fallbackNavItems } from "./navData";
 
 /** Server nodes carry ids and nulls the navbar does not need. */
-const toMenuItems = (
-  nodes: { label: string; url: string | null; children: unknown[] }[]
-): MenuItem[] =>
+const toMenuItems = (nodes: ServerNode[]): MenuItem[] =>
   nodes.map((node) => {
-    const children = toMenuItems(
-      node.children as { label: string; url: string | null; children: unknown[] }[]
-    );
+    const children = toMenuItems(node.children ?? []);
     return {
       label: node.label,
       ...(node.url ? { href: node.url } : {}),

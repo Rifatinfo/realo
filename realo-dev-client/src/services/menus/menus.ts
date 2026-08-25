@@ -26,14 +26,40 @@ const json = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-/** Server shape — ids are assigned on save, children always present. */
+/**
+ * What the API actually returns. It differs from the editor's `MenuNode` in
+ * one important way: a heading with no link has `url: null`, whereas the
+ * editor's inputs are controlled and need a string.
+ */
+export type ServerNode = {
+  id: string;
+  label: string;
+  url: string | null;
+  kind: MenuItemKind;
+  categoryId: string | null;
+  openInNewTab: boolean;
+  children: ServerNode[];
+};
+
 export type NavMenu = {
   id: string;
   slug: string;
   name: string;
   updatedAt: string;
-  items: MenuNode[];
+  items: ServerNode[];
 };
+
+/** Normalize the API shape into what the editor works with. */
+export const fromSavedTree = (nodes: ServerNode[]): MenuNode[] =>
+  nodes.map((node) => ({
+    id: node.id,
+    label: node.label,
+    url: node.url ?? "",
+    kind: node.kind,
+    categoryId: node.categoryId ?? null,
+    openInNewTab: node.openInNewTab ?? false,
+    children: fromSavedTree(node.children ?? []),
+  }));
 
 export type CategoryOption = {
   id: string;
@@ -68,7 +94,8 @@ export type SavedNode = {
 export const toSavedTree = (nodes: MenuNode[]): SavedNode[] =>
   nodes.map((node) => ({
     label: node.label,
-    url: node.url.trim() || null,
+    // Tolerate a null slipping in: a blank URL means a heading either way.
+    url: (node.url ?? "").trim() || null,
     kind: node.kind,
     categoryId: node.categoryId ?? null,
     openInNewTab: node.openInNewTab,

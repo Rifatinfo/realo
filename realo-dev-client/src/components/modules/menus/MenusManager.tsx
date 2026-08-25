@@ -5,6 +5,7 @@ import { Loader2Icon } from "lucide-react";
 
 import { Toast } from "@/components/shared/Toast/Toast";
 import {
+  fromSavedTree,
   getMenu,
   getMenuCategories,
   saveMenu,
@@ -59,7 +60,7 @@ export function MenusManager() {
 
         if (menu.data?.items?.length) {
           setMenuName(menu.data.name);
-          setItems(flattenTree(menu.data.items));
+          setItems(flattenTree(fromSavedTree(menu.data.items)));
         } else {
           // Nothing saved yet: start from the live header so the admin
           // rearranges their real navigation instead of a blank page.

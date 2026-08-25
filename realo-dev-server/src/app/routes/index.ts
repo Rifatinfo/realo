@@ -17,6 +17,7 @@ import { BlogRoutes } from "../modules/blog/blog.routes";
 import { AdsRoutes } from "../modules/ads/ads.routes";
 import { PricingRoutes } from "../modules/pricing/pricing.routes";
 import { FinanceRoutes } from "../modules/finance/finance.routes";
+import { NavMenuRoutes } from "../modules/navMenu/navMenu.routes";
 
 
 const router = express.Router();
@@ -33,6 +34,10 @@ const moduleRoutes = [
   {
     path: "/blog",
     route: BlogRoutes,
+  },
+  {
+    path: "/nav-menus",
+    route: NavMenuRoutes,
   },
   {
     path: "/ads",

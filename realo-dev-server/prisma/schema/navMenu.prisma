@@ -1,0 +1,53 @@
+/// Where a menu item points, which decides how the admin builder groups it
+/// and whether the URL is author-supplied or derived.
+enum NavMenuItemKind {
+  CUSTOM
+  PAGE
+  CATEGORY
+}
+
+/// A named navigation menu. The storefront header reads the one with slug
+/// "primary"; the slug exists so more menus (footer, mobile) can be added
+/// later without a schema change.
+model NavMenu {
+  id   String @id @default(cuid())
+  slug String @unique
+  name String
+
+  items NavMenuItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("nav_menus")
+}
+
+/// One row per entry in a menu. Nesting is a self-relation, and `position`
+/// orders siblings — together they reproduce the tree the admin builder
+/// edits by dragging.
+model NavMenuItem {
+  id     String  @id @default(cuid())
+  menuId String
+  menu   NavMenu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  label String
+  /// Null for a heading-only item that just groups its children.
+  url   String?
+  kind  NavMenuItemKind @default(CUSTOM)
+
+  /// Set when the item was added from the product category list, so a rename
+  /// there can be reflected here later.
+  categoryId String?
+
+  parentId String?
+  parent   NavMenuItem?  @relation("NavMenuItemTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children NavMenuItem[] @relation("NavMenuItemTree")
+
+  /// Order among siblings, 0-based.
+  position     Int     @default(0)
+  openInNewTab Boolean @default(false)
+
+  @@index([menuId])
+  @@index([parentId])
+  @@map("nav_menu_items")
+}

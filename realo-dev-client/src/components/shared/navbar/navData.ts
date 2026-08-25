@@ -1,4 +1,4 @@
-import { MenuItem } from "./Navbar";
+import type { MenuItem } from "./Navbar";
 
 export const categories: MenuItem[] = [
   {

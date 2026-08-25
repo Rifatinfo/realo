@@ -1,6 +1,12 @@
 "use client";
 
-import { NAV_MAIN, NAV_SECONDARY, NAV_ROLE, NAV_CONTENT } from "./nav-config";
+import {
+  NAV_MAIN,
+  NAV_SECONDARY,
+  NAV_ROLE,
+  NAV_CONTENT,
+  NAV_PROGRAMS,
+} from "./nav-config";
 import { NavMain } from "./NavMain";
 import { SidebarSearch } from "./SidebarSearch";
 
@@ -41,6 +47,7 @@ export function AppSidebar() {
   const navAdmin = filterNavByRole(NAV_ROLE, role);
   const navSecondary = filterNavByRole(NAV_SECONDARY, role);
   const navContent = filterNavByRole(NAV_CONTENT, role);
+  const navPrograms = filterNavByRole(NAV_PROGRAMS, role);
 
 
   // Section label adapts to who's logged in
@@ -80,6 +87,10 @@ export function AppSidebar() {
             title="Content"
             counts={contentCounts ?? undefined}
           />
+        )}
+
+        {navPrograms.length > 0 && (
+          <NavMain items={navPrograms} title="Programs" />
         )}
 
         {navAdmin.length > 0 && (

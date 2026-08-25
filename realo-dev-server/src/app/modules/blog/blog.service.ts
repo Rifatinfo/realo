@@ -4,8 +4,8 @@ import slugify from "slugify";
 
 import prisma from "../../../shared/prisma";
 import ApiError from "../../errors/ApiError";
-import { sanitizeProductDescription } from "../../../shared/sanitizeHtml";
-import { optimizeAndSaveImage } from "../../utils/imageOptimizer";
+import { sanitizePostContent } from "../../../shared/sanitizeHtml";
+import { optimizeAndSaveImage, saveRawFile } from "../../utils/imageOptimizer";
 import { buildSeoChecks, computeSeoScore, countWords } from "./blog.seo";
 import { suggestSeoFields, type SeoSuggestInput } from "./blog.ai";
 
@@ -170,7 +170,7 @@ const resolveStatus = (
 
 const createPost = async (payload: BlogPostPayload) => {
   const slug = await uniquePostSlug(payload.slug || payload.title);
-  const content = payload.content ? sanitizeProductDescription(payload.content) : null;
+  const content = payload.content ? sanitizePostContent(payload.content) : null;
   const publishedAt = payload.publishedAt ? new Date(payload.publishedAt) : null;
   const status = resolveStatus(payload.status, publishedAt);
 
@@ -214,7 +214,7 @@ const updatePost = async (id: string, payload: Partial<BlogPostPayload>) => {
   const content =
     payload.content !== undefined
       ? payload.content
-        ? sanitizeProductDescription(payload.content)
+        ? sanitizePostContent(payload.content)
         : null
       : existing.content;
 
@@ -591,6 +591,27 @@ const uploadImage = async (file: Express.Multer.File) => {
   return { url: `/uploads/blog/${filename}` };
 };
 
+/**
+ * Upload for anything the post editor can embed. Images still go through
+ * sharp (resized, re-encoded to webp); video, audio and documents are stored
+ * as-is, since re-encoding them would be both lossy and pointless.
+ */
+const uploadMedia = async (file: Express.Multer.File) => {
+  const isImage = file.mimetype.startsWith("image/");
+  const folder = isImage ? "blog" : "blog/media";
+
+  const filename = isImage
+    ? await optimizeAndSaveImage(file, folder)
+    : await saveRawFile(file, folder);
+
+  return {
+    url: `/uploads/${folder}/${filename}`,
+    name: file.originalname,
+    mimeType: file.mimetype,
+    size: file.size,
+  };
+};
+
 // ------------------------------- SEO helpers -------------------------------
 
 const seoSuggest = async (input: SeoSuggestInput) => suggestSeoFields(input);
@@ -674,6 +695,7 @@ export const BlogService = {
   deleteTag,
   listAuthors,
   uploadImage,
+  uploadMedia,
   seoSuggest,
   seoPreview,
   listPublicPosts,

@@ -1,82 +1,84 @@
-'use client';
-import { ChevronDownIcon } from 'lucide-react';
-import  { useState } from 'react'
-import { FormEvent } from 'react' 
+"use client";
+import { ChevronDownIcon } from "lucide-react";
+import { useState } from "react";
+import { FormEvent } from "react";
 import {
   FaFacebookF,
   FaInstagram,
   FaLinkedinIn,
   FaWhatsapp,
 } from "react-icons/fa";
-import WhiteLogo from '../logo/WhiteLogo';
-import { openCookiePreferences } from '@/lib/cookie-consent';
+
+import { openCookiePreferences } from "@/lib/cookie-consent";
+import WhiteLogo from "../logo/WhiteLogo";
+import Image from "next/image";
 type FooterGroup = {
-  title: string
-  links: string[]
-}
-const WR_LOGO_URL =
-  '/assets/Logo-icon.svg'
-const PAYMENT_GATEWAY_URL =
-  '/assets/Payment-Gateway.svg'
+  title: string;
+  links: string[];
+};
+const WR_LOGO_URL = "/assets/Logo_White2.png";
+const PAYMENT_GATEWAY_URL = "/assets/Payment-Gateway.svg";
+/** Accepted payment methods, shown centered under the main footer columns. */
+const PAYMENTS_URL = "/assets/payments.png";
 /**
  * Destinations for footer links that have a real page. Anything not listed
  * here stays an inert placeholder until its page exists.
  */
 const FOOTER_LINK_HREFS: Record<string, string> = {
-  'Order Status': '/order-tracking',
-}
+  "Order Status": "/order-tracking",
+};
 
-const footerLinkHref = (link: string) => FOOTER_LINK_HREFS[link] ?? '#'
+const footerLinkHref = (link: string) => FOOTER_LINK_HREFS[link] ?? "#";
 
 const FOOTER_GROUPS: FooterGroup[] = [
   {
-    title: 'Help',
+    title: "Help",
     links: [
-      'Order Status',
-      'Shipping and Delivery',
-      'Returns and Exchange',
-      'FAQs',
+      "Order Status",
+      "Shipping and Delivery",
+      "Returns and Exchange",
+      "FAQs",
     ],
   },
   {
-    title: 'Company',
+    title: "Company",
     links: [
-      'About Windrise',
-      'Careers',
-      'Press Center',
-      'Contact Us',
-      'Sustainability',
+      "About Windrise",
+      "Careers",
+      "Press Center",
+      "Contact Us",
+      "Sustainability",
     ],
   },
   {
-    title: 'Resources',
-    links: ['Windrise Stories', 'Promotions and Sale', 'Voucher'],
+    title: "Resources",
+    links: ["Windrise Stories", "Promotions and Sale", "Voucher"],
   },
   {
-    title: 'Payments',
-    links: [],
+    title: "Work With Us",
+    links: ["Investor", "Sellers", "Affiliates","Career", "Contact"],
   },
-]
+];
 export function Footer() {
-  const [email, setEmail] = useState('')
-  const [newsletterMessage, setNewsletterMessage] = useState('')
-  const [openGroup, setOpenGroup] = useState<string | null>(null)
+  const [email, setEmail] = useState("");
+  const [newsletterMessage, setNewsletterMessage] = useState("");
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   function handleNewsletterSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const normalizedEmail = email.trim()
+    event.preventDefault();
+    const normalizedEmail = email.trim();
     if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
-      setNewsletterMessage('Enter a valid email address to subscribe.')
-      return
+      setNewsletterMessage("Enter a valid email address to subscribe.");
+      return;
     }
-    setNewsletterMessage('Thank you — you’re on the list.')
-    setEmail('')
+    setNewsletterMessage("Thank you — you’re on the list.");
+    setEmail("");
   }
   function toggleGroup(title: string) {
-    setOpenGroup((currentGroup) => (currentGroup === title ? null : title))
+    setOpenGroup((currentGroup) => (currentGroup === title ? null : title));
   }
   return (
     <footer className="w-full bg-[#050505] text-white">
-      <div className="hidden px-6 py-20 md:block md:px-20 lg:px-20 lg:pt-28 lg:pb-16">
+      <div className="hidden px-6 py-20  md:block md:px-20 lg:px-20 lg:pt-28 lg:pb-16">
         <div className="grid grid-cols-[minmax(220px,1.8fr)_repeat(4,minmax(110px,1fr))] gap-x-12 xl:gap-x-38">
           <BrandPanel
             compact
@@ -90,7 +92,17 @@ export function Footer() {
           ))}
         </div>
       </div>
-
+      {/* `fill` would need a positioned parent with a real height; this strip
+          has a fixed 1312×45 aspect, so intrinsic sizing is the right fit. */}
+      <div className="flex justify-center px-6 pb-10 md:px-20">
+        <Image
+          src={PAYMENTS_URL}
+          alt="Accepted payment methods"
+          width={1312}
+          height={45}
+          className="h-auto w-auto max-w-full"
+        />
+      </div>
       <div className="hidden border-t border-[#272727]/70 px-6 py-5 md:flex md:items-center md:justify-between md:px-20 lg:px-20  font-dm-sans mb-8">
         <p className="text-xs text-zinc-500">
           © 2026 Windrise. All rights reserved.
@@ -127,16 +139,16 @@ export function Footer() {
 
         <div className="mt-10">
           {FOOTER_GROUPS.map((group, index) => {
-            const isOpen = openGroup === group.title
-            const panelId = `footer-group-${group.title.toLowerCase()}`
-            const isPayments = index === FOOTER_GROUPS.length - 1
+            const isOpen = openGroup === group.title;
+            const panelId = `footer-group-${group.title.toLowerCase()}`;
+            const isPayments = index === FOOTER_GROUPS.length - 1;
             return (
               <section
                 key={group.title}
                 className={
                   isPayments
-                    ? 'relative border-b border-[#272727]/70 before:absolute before:top-0 before:left-6 before:right-6 before:border-t before:border-[#272727]/70'
-                    : 'relative before:absolute before:top-0 before:left-6 before:right-6 before:border-t before:border-[#272727]/70'
+                    ? "relative border-b border-[#272727]/70 before:absolute before:top-0 before:left-6 before:right-6 before:border-t before:border-[#272727]/70"
+                    : "relative before:absolute before:top-0 before:left-6 before:right-6 before:border-t before:border-[#272727]/70"
                 }
               >
                 <button
@@ -148,7 +160,7 @@ export function Footer() {
                 >
                   {group.title}
                   <ChevronDownIcon
-                    className={`h-4 w-4 text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                    className={`h-4 w-4 text-zinc-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
                     strokeWidth={1.25}
                   />
                 </button>
@@ -177,7 +189,7 @@ export function Footer() {
                   </div>
                 )}
               </section>
-            )
+            );
           })}
         </div>
 
@@ -206,50 +218,51 @@ export function Footer() {
         </div>
       </div>
     </footer>
-  )
+  );
 }
 type BrandPanelProps = {
-  compact?: boolean
-  email?: string
-  newsletterMessage?: string
-  onEmailChange?: (email: string) => void
-  onSubmit?: (event: FormEvent<HTMLFormElement>) => void
-}
+  compact?: boolean;
+  email?: string;
+  newsletterMessage?: string;
+  onEmailChange?: (email: string) => void;
+  onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
+};
 function BrandPanel({
   compact = false,
-  email = '',
-  newsletterMessage = '',
+  email = "",
+  newsletterMessage = "",
   onEmailChange,
   onSubmit,
 }: BrandPanelProps) {
-  const isMobile = !compact
+  const isMobile = !compact;
   return (
-    <div className={compact ? 'max-w-[240px]' : ''}>
+    <div className={compact ? "max-w-[240px]" : ""}>
       {isMobile ? (
-        <WhiteLogo/>
+        <WhiteLogo />
       ) : (
-        <img src={WR_LOGO_URL} alt="Windrise" className="h-12 w-auto" />
+        // <img src={WR_LOGO_URL} alt="Windrise" className="h-12 w-[140px]" />
+        <WhiteLogo />
       )}
       <p
-        className={`${isMobile ? 'mt-4' : 'mt-5'} max-w-[250px] text-xs md:text-[15px] leading-[1.45] text-zinc-500`}
+        className={`${isMobile ? "mt-4" : "mt-5"} max-w-[250px] text-xs md:text-[15px] leading-[1.45] text-zinc-500`}
       >
         A curated blend of refined essentials for a life well-lived.
       </p>
       {onEmailChange && onSubmit && (
         <form
-          className={isMobile ? 'mt-8' : 'mt-16'}
+          className={isMobile ? "mt-8" : "mt-16"}
           onSubmit={onSubmit}
           noValidate
         >
           <div className="flex items-center border-b-2 border-[#272727]/70 pb-2  font-dm-sans">
             <label
               className="sr-only"
-              htmlFor={isMobile ? 'footer-email' : 'footer-desktop-email'}
+              htmlFor={isMobile ? "footer-email" : "footer-desktop-email"}
             >
               Email address
             </label>
             <input
-              id={isMobile ? 'footer-email' : 'footer-desktop-email'}
+              id={isMobile ? "footer-email" : "footer-desktop-email"}
               type="email"
               value={email}
               onChange={(event) => onEmailChange(event.target.value)}
@@ -272,7 +285,7 @@ function BrandPanel({
         </form>
       )}
     </div>
-  )
+  );
 }
 function DesktopLinkGroup({ group }: { group: FooterGroup }) {
   return (
@@ -299,27 +312,27 @@ function DesktopLinkGroup({ group }: { group: FooterGroup }) {
         />
       )}
     </section>
-  )
+  );
 }
 function SocialLinks() {
   const socialLinks = [
     {
-    label: "Facebook",
-    icon: FaFacebookF,
-  },
-  {
-    label: "Instagram",
-    icon: FaInstagram,
-  },
-  {
-    label: "WhatsApp",
-    icon: FaWhatsapp,
-  },
-  {
-    label: "LinkedIn",
-    icon: FaLinkedinIn,
-  },
-  ]
+      label: "Facebook",
+      icon: FaFacebookF,
+    },
+    {
+      label: "Instagram",
+      icon: FaInstagram,
+    },
+    {
+      label: "WhatsApp",
+      icon: FaWhatsapp,
+    },
+    {
+      label: "LinkedIn",
+      icon: FaLinkedinIn,
+    },
+  ];
   return (
     <div className="flex items-center gap-4 text-zinc-400">
       {socialLinks.map(({ label, icon: Icon }) => (
@@ -333,5 +346,5 @@ function SocialLinks() {
         </a>
       ))}
     </div>
-  )
+  );
 }

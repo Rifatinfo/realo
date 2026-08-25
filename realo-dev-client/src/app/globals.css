@@ -390,6 +390,428 @@ body {
   background: var(--color-canvas);
   font-weight: 600;
 }
+
+/* ==========================================================================
+   Blog post rich content — the extra blocks the post editor can insert.
+   `.post-content` is the sanitized read-only render; `.rte-content` is the
+   live editing surface, so both must carry every rule below.
+   ========================================================================== */
+
+.post-content {
+  color: var(--color-ink);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Everything the product description already styles applies to posts too. */
+.post-content > * { margin-top: 0.85em; margin-bottom: 0.85em; }
+.post-content > *:first-child { margin-top: 0; }
+.post-content > *:last-child { margin-bottom: 0; }
+.post-content h1 { font-size: 1.75em; font-weight: 700; line-height: 1.3; }
+.post-content h2 { font-size: 1.45em; font-weight: 700; line-height: 1.3; }
+.post-content h3 { font-size: 1.25em; font-weight: 600; line-height: 1.35; }
+.post-content h4 { font-size: 1.1em; font-weight: 600; line-height: 1.4; }
+.post-content h5 { font-size: 1em; font-weight: 600; line-height: 1.4; }
+.post-content h6 {
+  font-size: 0.9em; font-weight: 600; line-height: 1.4;
+  text-transform: uppercase; letter-spacing: 0.02em;
+}
+.post-content ul { list-style: disc; padding-left: 1.5em; }
+.post-content ol { list-style: decimal; padding-left: 1.5em; }
+.post-content ul ul, .post-content ol ul { list-style: circle; }
+.post-content li { margin-top: 0.25em; margin-bottom: 0.25em; }
+.post-content li > p { margin: 0; }
+.post-content a {
+  color: var(--color-brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.post-content blockquote {
+  border-left: 3px solid var(--color-line);
+  padding-left: 1em;
+  color: var(--color-ink-soft);
+  font-style: italic;
+}
+.post-content hr {
+  border: none;
+  border-top: 1px solid var(--color-line);
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
+}
+.post-content code {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-line);
+  border-radius: 4px;
+  padding: 0.15em 0.4em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+}
+.post-content pre {
+  background: var(--color-ink);
+  color: var(--color-surface);
+  border-radius: 8px;
+  padding: 0.85em 1em;
+  overflow-x: auto;
+}
+.post-content pre code { background: none; border: none; padding: 0; color: inherit; }
+.post-content mark { border-radius: 2px; padding: 0.05em 0.15em; }
+.post-content img { max-width: 100%; height: auto; border-radius: 8px; }
+.post-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.post-content th, .post-content td {
+  border: 1px solid var(--color-line);
+  padding: 0.5em 0.75em;
+  text-align: left;
+  vertical-align: top;
+}
+.post-content th { background: var(--color-canvas); font-weight: 600; }
+
+/* ── Keyboard input ─────────────────────────────────────────────────────── */
+
+.rte-content kbd, .post-content kbd {
+  border: 1px solid var(--color-line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--color-canvas);
+  padding: 0.1em 0.4em;
+  font-family: inherit;
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+/* ── Figure + caption ───────────────────────────────────────────────────── */
+
+.rte-content .post-figure, .post-content .post-figure {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+}
+
+.rte-content .post-figure figcaption, .post-content .post-figure figcaption {
+  margin-top: 0.5em;
+  color: var(--color-ink-soft);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+/* ── Gallery ────────────────────────────────────────────────────────────── */
+
+.rte-content .gallery-grid, .post-content .gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.rte-content .gallery-grid img, .post-content .gallery-grid img {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+/* ── Media ──────────────────────────────────────────────────────────────── */
+
+.rte-content .video-block, .post-content .video-block {
+  width: 100%;
+  border-radius: 8px;
+  background: #000;
+}
+
+.rte-content .audio-block, .post-content .audio-block { width: 100%; }
+
+.rte-content .embed-wrap, .post-content .embed-wrap {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-canvas);
+}
+
+.rte-content .embed-wrap iframe, .post-content .embed-wrap iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* ── File attachment ────────────────────────────────────────────────────── */
+
+.rte-content .file-block, .post-content .file-block {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: var(--color-canvas);
+  padding: 0.7em 0.9em;
+}
+
+.rte-content .file-block-icon::before, .post-content .file-block-icon::before {
+  content: "📄";
+  font-size: 1.05em;
+}
+
+.rte-content .file-block a, .post-content .file-block a {
+  font-weight: 500;
+  text-decoration: none;
+}
+
+/* ── Call to action ─────────────────────────────────────────────────────── */
+
+.rte-content .cta-wrap, .post-content .cta-wrap { text-align: center; }
+
+.rte-content .cta-btn, .post-content .cta-btn {
+  display: inline-block;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-surface);
+  padding: 0.6em 1.5em;
+  font-size: 0.9em;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* ── Callout ────────────────────────────────────────────────────────────── */
+
+.rte-content .callout, .post-content .callout {
+  border-left: 3px solid var(--color-brand);
+  border-radius: 0 8px 8px 0;
+  background: var(--color-brand-soft);
+  padding: 0.85em 1em;
+}
+
+.rte-content .callout > *, .post-content .callout > * { margin: 0; }
+
+/* ── Accordion ──────────────────────────────────────────────────────────── */
+
+.rte-content .accordion, .post-content .accordion {
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: 0.7em 0.9em;
+}
+
+.rte-content .accordion > summary, .post-content .accordion > summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: revert;
+}
+
+.rte-content .accordion-body, .post-content .accordion-body { margin-top: 0.6em; }
+
+/* ── Structural markers ─────────────────────────────────────────────────── */
+
+.rte-content .spacer, .post-content .spacer { height: 36px; }
+
+.rte-content .page-break, .post-content .page-break {
+  border-top: 2px dashed var(--color-line);
+  break-after: page;
+}
+
+.rte-content .read-more, .post-content .read-more {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  color: var(--color-ink-muted);
+  font-size: 0.72em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.rte-content .read-more::before, .post-content .read-more::before,
+.rte-content .read-more::after, .post-content .read-more::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--color-line);
+}
+
+/* Selected atom blocks need a visible outline while editing. */
+.rte-content .ProseMirror-selectednode {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ── Selectable, corner-resizable media ─────────────────────────────────── */
+
+.rte-content .rte-media-frame {
+  position: relative;
+  display: block;
+  max-width: 100%;
+}
+
+.rte-content .rte-media-frame > img,
+.rte-content .rte-media-frame > video {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: pointer;
+}
+
+/* The bounding box shown once the media is selected. */
+.rte-content .rte-media-frame.is-selected {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* The frame draws its own box, so suppress ProseMirror's duplicate one. */
+.rte-content .rte-media-frame.ProseMirror-selectednode {
+  outline: none;
+}
+
+.rte-content .rte-media-frame.is-selected.ProseMirror-selectednode {
+  outline: 2px solid var(--color-brand);
+}
+
+/* No text selection or native media drag while pulling a corner. */
+.rte-content .rte-media-frame.is-resizing {
+  user-select: none;
+}
+
+.rte-content .rte-media-frame.is-resizing > img,
+.rte-content .rte-media-frame.is-resizing > video,
+.rte-content .rte-media-frame.is-resizing > iframe {
+  pointer-events: none;
+}
+
+/* An embed keeps its 16:9 box while the wrapper's width changes. Overflow is
+   visible so the alignment controls are never clipped; the rounding moves to
+   the iframe itself to compensate. */
+.rte-content .rte-media-frame.embed-wrap {
+  padding-top: 0;
+  overflow: visible;
+}
+
+.rte-content .rte-media-frame.embed-wrap > iframe {
+  border-radius: 8px;
+}
+
+.rte-content .rte-media-frame.embed-wrap::before {
+  content: "";
+  display: block;
+  padding-top: 56.25%;
+}
+
+.rte-content .rte-media-frame.embed-wrap > iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.rte-content figure.rte-media-frame > figcaption:empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-ink-muted);
+}
+
+/* ── Media alignment ────────────────────────────────────────────────────── */
+
+/* A block that carries its own width cannot be moved by `text-align`, so
+   position it with auto margins instead. Shared by the editor and the
+   published post so both agree. */
+.rte-content [data-align="left"],
+.post-content [data-align="left"] {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.rte-content [data-align="center"],
+.post-content [data-align="center"] {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.rte-content [data-align="right"],
+.post-content [data-align="right"] {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+/* Controls shown over a selected block. Deliberately inside the frame's top
+   edge rather than above it: the editor pane scrolls, and anything hanging
+   above the first block in the document would be clipped. */
+.rte-content .rte-media-toolbar {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-pop);
+  white-space: nowrap;
+  z-index: 30;
+}
+
+/* ── Table editing ──────────────────────────────────────────────────────── */
+
+/* Scoped to the post editor and the post renderer: draggable column widths
+   need `display: table` plus a fixed layout, whereas the product editor's
+   tables stay `display: block` so they scroll on their own. */
+.rte-content-post .tableWrapper,
+.post-content .tableWrapper {
+  overflow-x: auto;
+}
+
+.rte-content-post .tableWrapper > table,
+.post-content .tableWrapper > table {
+  display: table;
+  table-layout: fixed;
+  margin: 0;
+}
+
+.rte-content table td,
+.rte-content table th {
+  position: relative;
+}
+
+/* Drag strip on a column's right edge. */
+.rte-content .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background: var(--color-brand);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.rte-content.resize-cursor,
+.rte-content.resize-cursor table {
+  cursor: col-resize;
+}
+
+/* Cells covered by the current selection. */
+.rte-content .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-brand) 14%, transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* The wrapper is a block in the flow, so it carries the block spacing. */
+.rte-content-post .tableWrapper,
+.post-content .tableWrapper {
+  margin-top: 0.85em;
+  margin-bottom: 0.85em;
+}
+
 /* ── Order tracking milestones ───────────────────────────────────────────── */
 
 :root {

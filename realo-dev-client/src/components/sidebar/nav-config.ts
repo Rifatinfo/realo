@@ -27,6 +27,10 @@ import {
   CircleDollarSign,
   BadgeDollarSign,
   Receipt,
+  BriefcaseIcon,
+  Link2Icon,
+  HandCoinsIcon,
+  UsersRoundIcon,
 } from "lucide-react";
 import { UserRole } from "@/types/role";
 import { PiInvoice } from "react-icons/pi";
@@ -64,23 +68,9 @@ export const NAV_MAIN: NavItem[] = [
   {
     id: "finance",
     label: "Finance",
-    icon: BadgeDollarSign ,
+    icon: BadgeDollarSign,
     roles: ["ADMIN"],
     path: "/admin/finance",
-  },
-  {
-    id: "customer",
-    label: "Customers",
-    icon: UserIcon,
-    roles: ["ADMIN", "SHOP_MANAGER"],
-    path: "/admin/customer",
-  },
-  {
-    id: "orders",
-    label: "Orders",
-    icon: ShoppingCartIcon,
-    roles: ["ADMIN", "SHOP_MANAGER"],
-    path: "/admin/orders",
   },
   {
     id: "inventory",
@@ -90,57 +80,103 @@ export const NAV_MAIN: NavItem[] = [
     path: "/admin/inventory-management",
   },
   {
-  id: "products",
-  label: "Products",
-  icon: PackageIcon,
-  roles: ["ADMIN"],
-  path: "/admin/products",
-  children: [
-    {
-      id: "all-product",
-      label: "All Products",
-      icon: BoxesIcon,
-      roles: ["ADMIN", "MEDIA_MANAGER"],
-      path: "/admin/all-product",
-    },
-    {
-      id: "add-product",
-      label: "Add Product",
-      icon: PackagePlusIcon,
-      roles: ["ADMIN", "MEDIA_MANAGER"],
-      path: "/admin/add-product",
-    },
-    {
-      id: "coupons",
-      label: "Coupons",
-      icon: BadgePercentIcon,
-      roles: ["ADMIN", "SHOP_MANAGER"],
-      path: "/admin/coupons",
-    },
-    {
-      id: "invoices",
-      label: "Invoices",
-      icon: PiInvoice,
-      roles: ["ADMIN", "MEDIA_MANAGER"],
-      path: "/admin/invoices",
-    },
-    {
-      id: "pricing",
-      label: "Pricing",
-      icon: Receipt  ,
-      roles: ["ADMIN"],
-      path: "/admin/pricing",
-    },
-    {
-      id: "shipping",
-      label: "Shipping",
-      icon: FaShippingFast,
-      roles: ["ADMIN", "SHOP_MANAGER"],
-      path: "/admin/shipping",
-    },
-  ],
-},
+    id: "orders",
+    label: "Orders",
+    icon: ShoppingCartIcon,
+    roles: ["ADMIN", "SHOP_MANAGER"],
+    path: "/admin/orders",
+  },
+
+  {
+    id: "users",
+    label: "Users",
+    icon: UsersIcon,
+    roles: ["ADMIN"],
+    path: "/admin/users",
+    children: [
+      {
+        id: "customer",
+        label: "Customers",
+        icon: UserIcon,
+        roles: ["ADMIN", "SHOP_MANAGER"],
+        path: "/admin/customer",
+      },
+      {
+        id: "investors",
+        label: "Investors",
+        icon: HandCoinsIcon,
+        roles: ["ADMIN"],
+        path: "/admin/investors",
+      },
+      {
+        id: "sellers",
+        label: "Sellers",
+        icon: StoreIcon,
+        roles: ["ADMIN", "SHOP_MANAGER"],
+        path: "/admin/sellers",
+      },
+      {
+        id: "affiliates",
+        label: "Affiliates",
+        icon: UsersRoundIcon,
+        roles: ["ADMIN", "SHOP_MANAGER"],
+        path: "/admin/affiliates",
+      },
+    ],
+  },
+
   
+  {
+    id: "products",
+    label: "Products",
+    icon: PackageIcon,
+    roles: ["ADMIN"],
+    path: "/admin/products",
+    children: [
+      {
+        id: "all-product",
+        label: "All Products",
+        icon: BoxesIcon,
+        roles: ["ADMIN", "MEDIA_MANAGER"],
+        path: "/admin/all-product",
+      },
+      {
+        id: "add-product",
+        label: "Add Product",
+        icon: PackagePlusIcon,
+        roles: ["ADMIN", "MEDIA_MANAGER"],
+        path: "/admin/add-product",
+      },
+      {
+        id: "coupons",
+        label: "Coupons",
+        icon: BadgePercentIcon,
+        roles: ["ADMIN", "SHOP_MANAGER"],
+        path: "/admin/coupons",
+      },
+      {
+        id: "invoices",
+        label: "Invoices",
+        icon: PiInvoice,
+        roles: ["ADMIN", "MEDIA_MANAGER"],
+        path: "/admin/invoices",
+      },
+      {
+        id: "pricing",
+        label: "Pricing",
+        icon: Receipt,
+        roles: ["ADMIN"],
+        path: "/admin/pricing",
+      },
+      {
+        id: "shipping",
+        label: "Shipping",
+        icon: FaShippingFast,
+        roles: ["ADMIN", "SHOP_MANAGER"],
+        path: "/admin/shipping",
+      },
+    ],
+  },
 ];
 
 // =====================
@@ -271,6 +307,33 @@ export const NAV_ROLE: NavItem[] = [
     icon: FileTextIcon,
     roles: ["MEDIA_MANAGER"],
     path: "/shop-dashboard/media-posts",
+  },
+];
+
+// =====================
+// Programs Section
+// =====================
+export const NAV_PROGRAMS: NavItem[] = [
+  {
+    id: "investors",
+    label: "Investors",
+    icon: BriefcaseIcon,
+    roles: ["ADMIN"],
+    path: "/admin/investors-management",
+  },
+  {
+    id: "sellers",
+    label: "Sellers",
+    icon: StoreIcon,
+    roles: ["ADMIN"],
+    path: "/admin/sellers",
+  },
+  {
+    id: "affiliates",
+    label: "Affiliates",
+    icon: Link2Icon,
+    roles: ["ADMIN"],
+    path: "/admin/affiliates",
   },
 ];
 

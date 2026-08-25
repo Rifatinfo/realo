@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { RichTextEditor } from "@/components/shared/richTextEditor/RichTextEditor";
+import type { SaveState } from "@/components/shared/richTextEditor/EditorFooter";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { FieldSelect } from "@/components/ui/field-select";
 import { Toast } from "@/components/shared/Toast/Toast";
@@ -146,6 +147,21 @@ export function PostEditorTab({
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
 
+  // ---- Autosave bookkeeping ------------------------------------------------
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  /** The post autosave writes to; null until an explicit save creates one. */
+  const savedPostId = useRef<string | null>(postId);
+  /** Read inside the autosave callback without re-arming it on every keystroke. */
+  const contentRef = useRef(content);
+  const lastSavedContent = useRef<string | null>(null);
+
+  // Ref writes belong in an effect, not the render pass; the autosave timer
+  // fires long after effects have flushed, so it always sees the latest text.
+  useEffect(() => {
+    contentRef.current = content;
+  });
+
   // ---- Load reference data + the post being edited -------------------------
 
   useEffect(() => {
@@ -175,6 +191,8 @@ export function PostEditorTab({
         setSlugTouched(true);
         setExcerpt(post.excerpt ?? "");
         setContent(post.content ?? "");
+        // Baseline for autosave: what the server already has.
+        lastSavedContent.current = post.content ?? "";
         setStatus(post.status);
         setPublicationDate(post.publishedAt ? post.publishedAt.slice(0, 10) : "");
         setVisibility(post.visibility);
@@ -325,25 +343,26 @@ export function PostEditorTab({
     ]
   );
 
+  /** Everything a save needs before it is worth sending. */
+  const validate = useCallback(() => {
+    if (!title.trim()) return "A post needs a title";
+    if (useCustomAuthor && !customAuthorName.trim()) return "Enter the custom author's name";
+    if (!useCustomAuthor && !authorId) return "Select an author";
+    return null;
+  }, [title, useCustomAuthor, customAuthorName, authorId]);
+
   const save = async (nextStatus: BlogStatus) => {
-    if (!title.trim()) {
-      Toast.fire({ icon: "error", title: "A post needs a title" });
-      return;
-    }
-    if (useCustomAuthor && !customAuthorName.trim()) {
-      Toast.fire({ icon: "error", title: "Enter the custom author's name" });
-      return;
-    }
-    if (!useCustomAuthor && !authorId) {
-      Toast.fire({ icon: "error", title: "Select an author" });
+    const problem = validate();
+    if (problem) {
+      Toast.fire({ icon: "error", title: problem });
       return;
     }
 
     setSaving(true);
     try {
       const payload = buildPayload(nextStatus);
-      if (postId) {
-        await updatePost(postId, payload);
+      if (savedPostId.current) {
+        await updatePost(savedPostId.current, payload);
         Toast.fire({ icon: "success", title: "Post updated" });
       } else {
         await createPost(payload);
@@ -358,6 +377,75 @@ export function PostEditorTab({
       Toast.fire({
         icon: "error",
         title: error instanceof Error ? error.message : "Save failed",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /**
+   * Background save behind the editor's autosave indicator.
+   *
+   * Only ever updates a post that already exists — creating one silently
+   * would litter the list with half-written drafts the author never asked for.
+   */
+  const autoSave = useCallback(async () => {
+    if (!savedPostId.current || saving) return;
+    if (validate()) return;
+    if (contentRef.current === lastSavedContent.current) return;
+
+    setSaveState("saving");
+    try {
+      await updatePost(savedPostId.current, buildPayload(status));
+      lastSavedContent.current = contentRef.current;
+      setSavedAt(new Date());
+      setSaveState("saved");
+      onSaved();
+    } catch {
+      // Leave the indicator alone; the explicit Save/Publish path reports errors.
+      setSaveState("idle");
+    }
+  }, [buildPayload, onSaved, saving, status, validate]);
+
+  /**
+   * Footer "Schedule for later" — takes the datetime the editor's dialog
+   * collected, mirrors it into the Publish panel, and saves as SCHEDULED.
+   */
+  const schedule = async (publishAt: string) => {
+    const problem = validate();
+    if (problem) {
+      Toast.fire({ icon: "error", title: problem });
+      return;
+    }
+
+    const when = new Date(publishAt);
+    if (Number.isNaN(when.getTime())) {
+      Toast.fire({ icon: "error", title: "Pick a valid date and time" });
+      return;
+    }
+
+    // The Publish panel's date field is the single source of truth for the
+    // payload, so drive it from the dialog rather than saving around it.
+    setPublicationDate(publishAt.slice(0, 10));
+    setStatus("SCHEDULED");
+    setSaveState("scheduled");
+
+    setSaving(true);
+    try {
+      const payload = { ...buildPayload("SCHEDULED"), publishedAt: when.toISOString() };
+      if (savedPostId.current) await updatePost(savedPostId.current, payload);
+      else await createPost(payload);
+
+      Toast.fire({
+        icon: "success",
+        title: `Scheduled for ${when.toLocaleString()}`,
+      });
+      onSaved();
+      onDone();
+    } catch (error) {
+      Toast.fire({
+        icon: "error",
+        title: error instanceof Error ? error.message : "Couldn't schedule the post",
       });
     } finally {
       setSaving(false);
@@ -450,10 +538,21 @@ export function PostEditorTab({
             </div>
             <div className="mt-1.5">
               <RichTextEditor
+                variant="full"
                 value={content}
                 onChange={setContent}
                 minHeight={320}
                 placeholder="Start writing your post... select text and use the toolbar, or type directly."
+                saveState={saveState}
+                savedAt={savedAt}
+                onAutoSave={autoSave}
+                footerActions={{
+                  busy: saving,
+                  publishLabel: postId ? "Update" : "Publish",
+                  onSaveDraft: () => save("DRAFT"),
+                  onPublish: () => save("PUBLISHED"),
+                  onSchedule: schedule,
+                }}
               />
             </div>
           </div>

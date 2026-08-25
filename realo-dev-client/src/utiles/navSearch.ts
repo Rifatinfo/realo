@@ -1,4 +1,11 @@
-import { NAV_MAIN, NAV_ROLE, NAV_SECONDARY, type NavItem } from "@/components/sidebar/nav-config";
+import {
+  NAV_CONTENT,
+  NAV_MAIN,
+  NAV_PROGRAMS,
+  NAV_ROLE,
+  NAV_SECONDARY,
+  type NavItem,
+} from "@/components/sidebar/nav-config";
 import type { UserRole } from "@/types/role";
 import { filterNavByRole } from "./filterNav";
 import { getRoleLabel } from "./user-utils";
@@ -27,6 +34,8 @@ export type NavSearchEntry = {
 export function buildNavSearchIndex(role: UserRole): NavSearchEntry[] {
   const sections: { items: NavItem[]; name: string }[] = [
     { items: NAV_MAIN, name: "Dashboards" },
+    { items: NAV_CONTENT, name: "Content" },
+    { items: NAV_PROGRAMS, name: "Programs" },
     { items: NAV_ROLE, name: getRoleLabel(role) },
     { items: NAV_SECONDARY, name: "More" },
   ];

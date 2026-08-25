@@ -14,13 +14,15 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { navItems } from "./navData";
+import { navItems as fallbackNavItems } from "./navData";
 import WhiteLogo from "../logo/WhiteLogo";
 import BlackLogo from "../logo/BlackLogo";
 
 type NavMode = "transparent" | "solid-light";
 interface NavbarProps {
   mode: NavMode;
+  /** The menu tree to render; supplied by HeaderWrapper. */
+  items?: MenuItem[];
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
 }
@@ -251,7 +253,7 @@ function MobileItem({
 // ============================================================
 // Main Navbar
 // ============================================================
-export function Navbar({ mode }: NavbarProps) {
+export function Navbar({ mode, items = fallbackNavItems }: NavbarProps) {
 
 
 
@@ -336,7 +338,7 @@ export function Navbar({ mode }: NavbarProps) {
 
             {/* Desktop Nav Items */}
             <div className="hidden lg:flex items-center space-x-7">
-              {navItems.map((item) => {
+              {items.map((item) => {
                 const isOpen = hoveredItem === item.label;
                 const expandable = hasChildren(item);
                 return (
@@ -518,7 +520,7 @@ export function Navbar({ mode }: NavbarProps) {
 
               {/* Menu Items — same structure as desktop */}
               <div className="flex-1 overflow-y-auto">
-                {navItems.map((item) => (
+                {items.map((item) => (
                   <MobileItem
                     key={item.label}
                     item={item}

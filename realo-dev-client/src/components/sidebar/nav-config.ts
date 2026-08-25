@@ -29,8 +29,10 @@ import {
   Receipt,
   BriefcaseIcon,
   Link2Icon,
+  MenuSquareIcon,
   HandCoinsIcon,
   UsersRoundIcon,
+  Menu,
 } from "lucide-react";
 import { UserRole } from "@/types/role";
 import { PiInvoice } from "react-icons/pi";
@@ -86,6 +88,13 @@ export const NAV_MAIN: NavItem[] = [
     roles: ["ADMIN", "SHOP_MANAGER"],
     path: "/admin/orders",
   },
+  // {
+  //   id: "add-menu",
+  //   label: "Add Menu",
+  //   icon: Menu,
+  //   roles: ["ADMIN", "SHOP_MANAGER"],
+  //   path: "/admin/menus",
+  // },
 
   {
     id: "users",
@@ -341,6 +350,13 @@ export const NAV_PROGRAMS: NavItem[] = [
 // Content Section
 // =====================
 export const NAV_CONTENT: NavItem[] = [
+  {
+    id: "menus",
+    label: "Add Menus",
+    icon: MenuSquareIcon,
+    roles: ["ADMIN"],
+    path: "/admin/menus",
+  },
   {
     id: "blogs",
     label: "Blogs",

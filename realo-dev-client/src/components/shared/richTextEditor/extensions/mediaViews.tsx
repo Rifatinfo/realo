@@ -7,102 +7,251 @@ import {
   ReactNodeViewRenderer,
   type NodeViewProps,
 } from "@tiptap/react"
-
 import { NodeSelection, Plugin, PluginKey } from "@tiptap/pm/state"
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  Move,
+  RotateCcw,
+} from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal } from "lucide-react"
-
 import {
   CONTENT_BLOCKS,
   EmbedBlock,
   Figure,
   ImageBlock,
   VideoBlock,
-  type MediaAlign,
 } from "./blocks"
-
-/** The four grab points, and which way dragging each one grows the frame. */
-const HANDLES = [
-  { key: "nw", direction: -1, className: "-left-1.5 -top-1.5 cursor-nwse-resize" },
-  { key: "ne", direction: 1, className: "-right-1.5 -top-1.5 cursor-nesw-resize" },
-  { key: "sw", direction: -1, className: "-bottom-1.5 -left-1.5 cursor-nesw-resize" },
-  { key: "se", direction: 1, className: "-right-1.5 -bottom-1.5 cursor-nwse-resize" },
-] as const
-
-const MIN_WIDTH_PX = 60
+import { mediaFrameCss, type MediaAlign, type MediaFrameAttrs } from "./mediaFrame"
 
 /**
- * Click-to-select plus corner-drag scaling, the way a word processor does it.
+ * The eight bounding-box handles. `dx`/`dy` say which edges the handle moves:
+ * corners (both non-zero) scale proportionally, edges stretch one axis.
+ */
+const HANDLES = [
+  { key: "nw", dx: -1, dy: -1, className: "-left-1.5 -top-1.5 cursor-nwse-resize" },
+  { key: "n", dx: 0, dy: -1, className: "left-1/2 -top-1.5 -ml-1.5 cursor-ns-resize" },
+  { key: "ne", dx: 1, dy: -1, className: "-right-1.5 -top-1.5 cursor-nesw-resize" },
+  { key: "w", dx: -1, dy: 0, className: "-left-1.5 top-1/2 -mt-1.5 cursor-ew-resize" },
+  { key: "e", dx: 1, dy: 0, className: "-right-1.5 top-1/2 -mt-1.5 cursor-ew-resize" },
+  { key: "sw", dx: -1, dy: 1, className: "-left-1.5 -bottom-1.5 cursor-nesw-resize" },
+  { key: "s", dx: 0, dy: 1, className: "left-1/2 -bottom-1.5 -ml-1.5 cursor-ns-resize" },
+  { key: "se", dx: 1, dy: 1, className: "-right-1.5 -bottom-1.5 cursor-nwse-resize" },
+] as const
+
+const MIN_WIDTH_PX = 40
+const MIN_HEIGHT_PX = 30
+/** Pointer travel before a press on an image counts as a drag rather than a click. */
+const DRAG_THRESHOLD = 4
+
+/** Rotate a pointer delta into the frame's own (rotated) coordinate space. */
+function toLocalDelta(dx: number, dy: number, degrees: number) {
+  const rad = (-degrees * Math.PI) / 180
+  return {
+    x: dx * Math.cos(rad) - dy * Math.sin(rad),
+    y: dx * Math.sin(rad) + dy * Math.cos(rad),
+  }
+}
+
+type Geometry = Partial<MediaFrameAttrs>
+
+/**
+ * Select, scale, rotate and freely position a media block.
  *
- * Width is stored as a percentage of the editor's content width so a post
- * scaled on a desktop still fits a phone, and height is never written —
- * `height: auto` in the stylesheet keeps the aspect ratio locked.
+ * Geometry is written to the document only when a gesture ends, so a drag is
+ * a single undo step; during the gesture a local override drives the preview.
  */
 function useMediaFrame({
   editor,
   getPos,
-  storedWidth,
+  attrs,
   updateAttributes,
 }: {
   editor: NodeViewProps["editor"]
   getPos: NodeViewProps["getPos"]
-  storedWidth: string | null
+  attrs: MediaFrameAttrs
   updateAttributes: NodeViewProps["updateAttributes"]
 }) {
   const frameRef = React.useRef<HTMLElement | null>(null)
-  // Live width during a drag. Held in React rather than written to the
-  // document on every pointermove, so the whole resize is one undo step.
-  const [liveWidth, setLiveWidth] = React.useState<string | null>(null)
+  const [preview, setPreview] = React.useState<Geometry | null>(null)
+  const [gesture, setGesture] = React.useState<"resize" | "rotate" | "move" | null>(null)
 
-  /**
-   * `figure` has an editable caption, so it is not an atom — ProseMirror
-   * would put the caret in the caption rather than selecting the node.
-   * Selecting explicitly is what makes the bounding box appear for it.
-   */
   const select = React.useCallback(() => {
     const pos = getPos()
     if (typeof pos === "number") editor.commands.setNodeSelection(pos)
   }, [editor, getPos])
 
-  const startResize = (event: React.PointerEvent, direction: number) => {
+  /** Runs a pointer gesture, previewing locally and committing on release. */
+  const runGesture = (
+    kind: "resize" | "rotate" | "move",
+    event: React.PointerEvent,
+    compute: (move: PointerEvent, context: GestureContext) => Geometry
+  ) => {
     event.preventDefault()
     event.stopPropagation()
 
     const frame = frameRef.current
     if (!frame) return
 
-    const contentWidth = editor.view.dom.clientWidth
-    const startX = event.clientX
-    const startWidth = frame.offsetWidth
-    let latest = storedWidth
+    const box = frame.getBoundingClientRect()
+    const editorBox = editor.view.dom.getBoundingClientRect()
+
+    const context: GestureContext = {
+      startX: event.clientX,
+      startY: event.clientY,
+      startWidth: frame.offsetWidth,
+      startHeight: frame.offsetHeight,
+      centerX: box.left + box.width / 2,
+      centerY: box.top + box.height / 2,
+      contentWidth: editor.view.dom.clientWidth,
+      // Where the block sits inside the document right now, which is what a
+      // move gesture offsets from.
+      startLeft: box.left - editorBox.left,
+      startTop: box.top - editorBox.top,
+      rotation: attrs.rotate ?? 0,
+    }
+
+    let latest: Geometry = {}
+    setGesture(kind)
 
     const onMove = (move: PointerEvent) => {
-      const delta = (move.clientX - startX) * direction
-      const next = Math.min(contentWidth, Math.max(MIN_WIDTH_PX, startWidth + delta))
-      latest = `${Math.round((next / contentWidth) * 1000) / 10}%`
-      setLiveWidth(latest)
+      latest = compute(move, context)
+      setPreview(latest)
     }
 
     const onUp = () => {
       window.removeEventListener("pointermove", onMove)
       window.removeEventListener("pointerup", onUp)
-      setLiveWidth(null)
-      if (latest !== storedWidth) updateAttributes({ width: latest })
+      setPreview(null)
+      setGesture(null)
+      if (Object.keys(latest).length) updateAttributes(latest)
     }
 
     window.addEventListener("pointermove", onMove)
     window.addEventListener("pointerup", onUp)
   }
 
+  const startResize = (
+    event: React.PointerEvent,
+    handle: { dx: number; dy: number }
+  ) =>
+    runGesture("resize", event, (move, context) => {
+      const local = toLocalDelta(
+        move.clientX - context.startX,
+        move.clientY - context.startY,
+        context.rotation
+      )
+
+      const next: Geometry = {}
+
+      if (handle.dx !== 0) {
+        const width = Math.max(MIN_WIDTH_PX, context.startWidth + local.x * handle.dx)
+        next.width = `${Math.round((width / context.contentWidth) * 1000) / 10}%`
+      }
+
+      if (handle.dy !== 0) {
+        const height = Math.max(MIN_HEIGHT_PX, context.startHeight + local.y * handle.dy)
+        next.height = `${Math.round(height)}px`
+      }
+
+      // A corner scales the whole box, so height follows the image's own
+      // aspect ratio rather than being pinned.
+      if (handle.dx !== 0 && handle.dy !== 0) next.height = null
+
+      return next
+    })
+
+  const startRotate = (event: React.PointerEvent) =>
+    runGesture("rotate", event, (move, context) => {
+      const degrees =
+        (Math.atan2(move.clientY - context.centerY, move.clientX - context.centerX) *
+          180) /
+          Math.PI +
+        90
+
+      // Snap to 15° steps unless Shift is held, the usual convention.
+      const snapped = move.shiftKey ? degrees : Math.round(degrees / 15) * 15
+      return { rotate: Math.round(snapped) % 360 }
+    })
+
+  /**
+   * Drag the block to any position in the document.
+   *
+   * A block still in the text flow is converted on the first real movement,
+   * keeping the exact spot it already occupied — so dragging just works and
+   * a plain click never rips an image out of the flow by accident.
+   */
+  const startMove = (event: React.PointerEvent) =>
+    runGesture("move", event, (move, context) => {
+      const dx = move.clientX - context.startX
+      const dy = move.clientY - context.startY
+
+      // Below the threshold this was a click, not a drag: commit nothing.
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return {}
+
+      // Keep the block reachable — never let it be dragged out of the
+      // document and off where it cannot be selected again.
+      const maxLeft = Math.max(0, context.contentWidth - context.startWidth)
+      const left = Math.min(maxLeft, Math.max(0, context.startLeft + dx))
+      const top = Math.max(0, context.startTop + dy)
+
+      return {
+        free: true,
+        x: `${Math.round((left / context.contentWidth) * 1000) / 10}%`,
+        y: `${Math.round(top)}px`,
+      }
+    })
+
+  /**
+   * Breaking a block out of the flow has to keep it where it already is,
+   * otherwise it jumps to the top-left the moment free mode is switched on.
+   */
+  const toggleFree = () => {
+    const frame = frameRef.current
+    if (!frame) return
+
+    if (attrs.free) {
+      updateAttributes({ free: false, x: null, y: null })
+      return
+    }
+
+    const box = frame.getBoundingClientRect()
+    const editorBox = editor.view.dom.getBoundingClientRect()
+    const contentWidth = editor.view.dom.clientWidth
+
+    updateAttributes({
+      free: true,
+      x: `${Math.round(((box.left - editorBox.left) / contentWidth) * 1000) / 10}%`,
+      y: `${Math.round(box.top - editorBox.top)}px`,
+    })
+  }
+
   return {
     frameRef,
     select,
     startResize,
-    dragging: liveWidth !== null,
-    width: liveWidth ?? storedWidth ?? undefined,
-    liveWidth,
+    startRotate,
+    startMove,
+    toggleFree,
+    gesture,
+    /** Attributes with the in-flight gesture applied on top. */
+    live: { ...attrs, ...preview } as MediaFrameAttrs,
   }
+}
+
+interface GestureContext {
+  startX: number
+  startY: number
+  startWidth: number
+  startHeight: number
+  centerX: number
+  centerY: number
+  contentWidth: number
+  startLeft: number
+  startTop: number
+  rotation: number
 }
 
 const ALIGN_BUTTONS = [
@@ -111,39 +260,38 @@ const ALIGN_BUTTONS = [
   { value: "right", label: "Align right", Icon: AlignRight },
 ] as const
 
-/**
- * Alignment controls pinned above the selected block.
- *
- * The main toolbar's align buttons do the same thing; these exist because a
- * selected image is where people look for them.
- */
-function AlignBar({
-  align,
+/** Controls pinned over the selected block. */
+function MediaToolbar({
+  live,
   onAlign,
-  onFullWidth,
+  onToggleFree,
+  onReset,
 }: {
-  align: string | null
+  live: MediaFrameAttrs
   onAlign: (value: MediaAlign) => void
-  onFullWidth: () => void
+  onToggleFree: () => void
+  onReset: () => void
 }) {
+  const button = (active: boolean) =>
+    cn(
+      "inline-flex size-6 items-center justify-center rounded transition-colors [&_svg]:size-3.5",
+      active ? "bg-brand/10 text-brand" : "text-slate-500 hover:bg-slate-100"
+    )
+
   return (
     <span contentEditable={false} className="rte-media-toolbar">
       {ALIGN_BUTTONS.map(({ value, label, Icon }) => (
         <button
           key={value}
           type="button"
-          title={label}
+          title={live.free ? `${label} (inline mode only)` : label}
           aria-label={label}
-          aria-pressed={align === value}
-          // The frame must stay selected, so never let this steal focus.
+          aria-pressed={live.align === value}
+          disabled={live.free}
+          // Never let a control steal the selection off the frame.
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => onAlign(value)}
-          className={cn(
-            "inline-flex size-6 items-center justify-center rounded transition-colors [&_svg]:size-3.5",
-            align === value
-              ? "bg-brand/10 text-brand"
-              : "text-slate-500 hover:bg-slate-100"
-          )}
+          className={cn(button(live.align === value), live.free && "opacity-30")}
         >
           <Icon />
         </button>
@@ -153,86 +301,126 @@ function AlignBar({
 
       <button
         type="button"
-        title="Full width"
-        aria-label="Full width"
+        title={live.free ? "Return to the text flow" : "Place freely"}
+        aria-label="Toggle free placement"
+        aria-pressed={live.free}
         onMouseDown={(event) => event.preventDefault()}
-        onClick={onFullWidth}
-        className="inline-flex size-6 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-100 [&_svg]:size-3.5"
+        onClick={onToggleFree}
+        className={button(live.free)}
       >
-        <StretchHorizontal />
+        <Move />
+      </button>
+
+      <button
+        type="button"
+        title="Reset size, rotation and position"
+        aria-label="Reset"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={onReset}
+        className={button(false)}
+      >
+        <RotateCcw />
       </button>
     </span>
   )
 }
 
-function ResizeHandles({
-  onStart,
-  liveWidth,
+/** Bounding box: eight handles plus the rotation grip above the top edge. */
+function Handles({
+  live,
+  gesture,
+  onResize,
+  onRotate,
 }: {
-  onStart: (event: React.PointerEvent, direction: number) => void
-  /** Shown as a size badge only while a drag is in progress. */
-  liveWidth: string | null
+  live: MediaFrameAttrs
+  gesture: "resize" | "rotate" | "move" | null
+  onResize: (event: React.PointerEvent, handle: { dx: number; dy: number }) => void
+  onRotate: (event: React.PointerEvent) => void
 }) {
   return (
     <>
+      <span
+        contentEditable={false}
+        onPointerDown={onRotate}
+        title="Rotate"
+        className="absolute -top-8 left-1/2 z-20 flex size-5 -translate-x-1/2 cursor-grab items-center justify-center rounded-full border border-brand bg-white text-brand shadow-sm active:cursor-grabbing [&_svg]:size-3"
+      >
+        <RotateCcw />
+      </span>
+      {/* Stem joining the grip to the box, as in a slide editor. */}
+      <span
+        aria-hidden="true"
+        className="absolute -top-3 left-1/2 z-10 h-3 w-px -translate-x-1/2 bg-brand"
+      />
+
       {HANDLES.map((handle) => (
         <span
           key={handle.key}
           contentEditable={false}
-          onPointerDown={(event) => onStart(event, handle.direction)}
+          onPointerDown={(event) => onResize(event, handle)}
           className={cn(
-            "absolute z-20 size-3 rounded-[2px] border border-brand bg-white shadow-sm",
+            "absolute z-20 size-3 rounded-full border-2 border-brand bg-white shadow-sm",
             handle.className
           )}
         />
       ))}
 
-      {liveWidth && (
+      {gesture === "resize" && (
         <span
           contentEditable={false}
-          className="absolute -top-6 left-1/2 z-20 -translate-x-1/2 rounded bg-slate-900 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white"
+          className="absolute -bottom-7 left-1/2 z-20 -translate-x-1/2 rounded bg-slate-900 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white"
         >
-          {liveWidth}
+          {live.width ?? "auto"}
+          {live.height ? ` × ${live.height}` : ""}
+        </span>
+      )}
+
+      {gesture === "rotate" && (
+        <span
+          contentEditable={false}
+          className="absolute -bottom-7 left-1/2 z-20 -translate-x-1/2 rounded bg-slate-900 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white"
+        >
+          {live.rotate ?? 0}°
         </span>
       )}
     </>
   )
 }
 
-/**
- * Shared shell: the bounding box, the corner anchors, and the click target
- * that selects the node.
- */
+type FrameShellProps = {
+  as?: React.ElementType
+  className?: string
+  selected: boolean
+  frameRef: React.Ref<HTMLElement>
+  live: MediaFrameAttrs
+  gesture: "resize" | "rotate" | "move" | null
+  onStartResize: (event: React.PointerEvent, handle: { dx: number; dy: number }) => void
+  onStartRotate: (event: React.PointerEvent) => void
+  onStartMove: (event: React.PointerEvent) => void
+  onToggleFree: () => void
+  onReset: () => void
+  onAlign: (value: MediaAlign) => void
+  children: React.ReactNode
+  caption?: React.ReactNode
+}
+
 function MediaFrame({
   as = "div",
   className,
   selected,
   frameRef,
-  dragging,
-  width,
-  liveWidth,
-  align,
-  onAlign,
-  onFullWidth,
+  live,
+  gesture,
   onStartResize,
+  onStartRotate,
+  onStartMove,
+  onToggleFree,
+  onReset,
+  onAlign,
   children,
   caption,
-}: {
-  as?: React.ElementType
-  className?: string
-  selected: boolean
-  frameRef: React.Ref<HTMLElement>
-  dragging: boolean
-  width: string | undefined
-  liveWidth: string | null
-  align: string | null
-  onAlign: (value: MediaAlign) => void
-  onFullWidth: () => void
-  onStartResize: (event: React.PointerEvent, direction: number) => void
-  children: React.ReactNode
-  caption?: React.ReactNode
-}) {
-  const active = selected || dragging
+}: FrameShellProps) {
+  const active = selected || gesture !== null
 
   return (
     <NodeViewWrapper
@@ -241,42 +429,106 @@ function MediaFrame({
       className={cn(
         "rte-media-frame",
         active && "is-selected",
-        dragging && "is-resizing",
+        gesture && "is-busy",
+        live.free && "is-free",
         className
       )}
-      style={{ width }}
-      data-align={align ?? undefined}
+      style={mediaFrameCss(live)}
+      data-align={live.align ?? undefined}
+      data-free={live.free ? "true" : undefined}
     >
       {children}
-      {selected && !dragging && (
-        <AlignBar align={align} onAlign={onAlign} onFullWidth={onFullWidth} />
+
+      {/* In free mode the block is dragged by its body, so the whole frame
+          becomes the move handle once it is selected. */}
+      {selected && live.free && (
+        <span
+          contentEditable={false}
+          onPointerDown={onStartMove}
+          className="absolute inset-0 z-10 cursor-move"
+        />
       )}
-      {active && <ResizeHandles onStart={onStartResize} liveWidth={liveWidth} />}
+
+      {active && (
+        <Handles
+          live={live}
+          gesture={gesture}
+          onResize={onStartResize}
+          onRotate={onStartRotate}
+        />
+      )}
+
+      {selected && !gesture && (
+        <MediaToolbar
+          live={live}
+          onAlign={onAlign}
+          onToggleFree={onToggleFree}
+          onReset={onReset}
+        />
+      )}
+
       {caption}
     </NodeViewWrapper>
   )
 }
 
-/** Bare `<img>` — no caption. */
-function ImageBlockView(props: NodeViewProps) {
-  const { node, selected } = props
-  const { frameRef, select, startResize, dragging, width, liveWidth } = useMediaFrame({
+/** Shared wiring every media node view needs. */
+function useMediaNode(props: NodeViewProps) {
+  const attrs = props.node.attrs as unknown as MediaFrameAttrs
+
+  const {
+    frameRef,
+    select,
+    startResize,
+    startRotate,
+    startMove,
+    toggleFree,
+    gesture,
+    live,
+  } = useMediaFrame({
     editor: props.editor,
     getPos: props.getPos,
-    storedWidth: (node.attrs.width as string) ?? null,
+    attrs,
     updateAttributes: props.updateAttributes,
   })
 
+  /**
+   * Pressing an image selects it and arms a drag in one gesture, so the image
+   * can be dragged straight to a new position without any mode to switch on.
+   */
+  const onPressBody = (event: React.PointerEvent) => {
+    select()
+    startMove(event)
+  }
+
   const frameProps = {
     frameRef: frameRef as React.Ref<HTMLElement>,
-    dragging,
-    width,
-    liveWidth,
-    align: (node.attrs.align as string) ?? null,
-    onAlign: (value: MediaAlign) => props.updateAttributes({ align: value }),
-    onFullWidth: () => props.updateAttributes({ align: null, width: null }),
+    live,
+    gesture,
     onStartResize: startResize,
+    onStartRotate: startRotate,
+    onStartMove: startMove,
+    onToggleFree: toggleFree,
+    onAlign: (value: MediaAlign) => props.updateAttributes({ align: value }),
+    onReset: () =>
+      props.updateAttributes({
+        width: null,
+        height: null,
+        rotate: null,
+        align: null,
+        free: false,
+        x: null,
+        y: null,
+      }),
   }
+
+  return { frameProps, select, onPressBody }
+}
+
+/** Bare `<img>` — no caption. */
+function ImageBlockView(props: NodeViewProps) {
+  const { node, selected } = props
+  const { frameProps, onPressBody } = useMediaNode(props)
 
   return (
     <MediaFrame selected={selected} {...frameProps}>
@@ -286,12 +538,9 @@ function ImageBlockView(props: NodeViewProps) {
         alt={node.attrs.alt ?? ""}
         title={node.attrs.title ?? undefined}
         draggable={false}
-        // An atom already selects on click; preventDefault stops the browser
-        // dropping a caret next to it first, which would flicker the box.
-        onMouseDown={(event) => {
-          event.preventDefault()
-          select()
-        }}
+        // Pressing the image both selects it and arms a drag; the gesture
+        // only commits once the pointer actually travels.
+        onPointerDown={onPressBody}
       />
     </MediaFrame>
   )
@@ -300,23 +549,7 @@ function ImageBlockView(props: NodeViewProps) {
 /** `<figure>` with an editable caption. */
 function FigureView(props: NodeViewProps) {
   const { node, selected } = props
-  const { frameRef, select, startResize, dragging, width, liveWidth } = useMediaFrame({
-    editor: props.editor,
-    getPos: props.getPos,
-    storedWidth: (node.attrs.width as string) ?? null,
-    updateAttributes: props.updateAttributes,
-  })
-
-  const frameProps = {
-    frameRef: frameRef as React.Ref<HTMLElement>,
-    dragging,
-    width,
-    liveWidth,
-    align: (node.attrs.align as string) ?? null,
-    onAlign: (value: MediaAlign) => props.updateAttributes({ align: value }),
-    onFullWidth: () => props.updateAttributes({ align: null, width: null }),
-    onStartResize: startResize,
-  }
+  const { frameProps, onPressBody } = useMediaNode(props)
 
   return (
     <MediaFrame
@@ -334,10 +567,9 @@ function FigureView(props: NodeViewProps) {
         src={node.attrs.src ?? ""}
         alt={node.attrs.alt ?? ""}
         draggable={false}
-        onMouseDown={(event) => {
-          event.preventDefault()
-          select()
-        }}
+        // Pressing the image both selects it and arms a drag; the gesture
+        // only commits once the pointer actually travels.
+        onPointerDown={onPressBody}
       />
     </MediaFrame>
   )
@@ -346,23 +578,7 @@ function FigureView(props: NodeViewProps) {
 /** `<video controls>` — selectable without losing the playback controls. */
 function VideoBlockView(props: NodeViewProps) {
   const { node, selected } = props
-  const { frameRef, select, startResize, dragging, width, liveWidth } = useMediaFrame({
-    editor: props.editor,
-    getPos: props.getPos,
-    storedWidth: (node.attrs.width as string) ?? null,
-    updateAttributes: props.updateAttributes,
-  })
-
-  const frameProps = {
-    frameRef: frameRef as React.Ref<HTMLElement>,
-    dragging,
-    width,
-    liveWidth,
-    align: (node.attrs.align as string) ?? null,
-    onAlign: (value: MediaAlign) => props.updateAttributes({ align: value }),
-    onFullWidth: () => props.updateAttributes({ align: null, width: null }),
-    onStartResize: startResize,
-  }
+  const { frameProps, select } = useMediaNode(props)
 
   return (
     <MediaFrame selected={selected} {...frameProps}>
@@ -370,8 +586,7 @@ function VideoBlockView(props: NodeViewProps) {
         className="video-block"
         src={node.attrs.src ?? ""}
         controls
-        // No preventDefault here: the browser's own controls must keep
-        // receiving the click that selects the node.
+        // No preventDefault: the browser's own controls must keep the click.
         onMouseDown={select}
       />
     </MediaFrame>
@@ -379,32 +594,19 @@ function VideoBlockView(props: NodeViewProps) {
 }
 
 /**
- * Embedded player (YouTube / Vimeo). Pointer events go into the iframe, so an
- * overlay catches the first click; once selected it stops intercepting and
- * the video becomes playable.
+ * Embedded player. Pointer events go into the iframe, so an overlay catches
+ * the first click; once selected it stops intercepting and the video plays.
  */
 function EmbedBlockView(props: NodeViewProps) {
   const { node, selected } = props
-  const { frameRef, select, startResize, dragging, width, liveWidth } = useMediaFrame({
-    editor: props.editor,
-    getPos: props.getPos,
-    storedWidth: (node.attrs.width as string) ?? null,
-    updateAttributes: props.updateAttributes,
-  })
-
-  const frameProps = {
-    frameRef: frameRef as React.Ref<HTMLElement>,
-    dragging,
-    width,
-    liveWidth,
-    align: (node.attrs.align as string) ?? null,
-    onAlign: (value: MediaAlign) => props.updateAttributes({ align: value }),
-    onFullWidth: () => props.updateAttributes({ align: null, width: null }),
-    onStartResize: startResize,
-  }
+  const { frameProps, select } = useMediaNode(props)
 
   return (
-    <MediaFrame className="embed-wrap" selected={selected} {...frameProps}>
+    <MediaFrame
+      className="embed-wrap"
+      selected={selected}
+      {...frameProps}
+    >
       <iframe
         src={node.attrs.src ?? ""}
         loading="lazy"

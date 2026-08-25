@@ -99,6 +99,7 @@ export const POST_CONTENT_ALLOWED_ATTR = [
   "id",
   // Block alignment for images, video and embeds.
   "data-align",
+  "data-free",
   "controls",
   "loading",
   "allow",
